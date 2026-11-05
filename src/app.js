@@ -593,6 +593,12 @@ function init() {
   $('btnBack').onclick = () => { show('pick'); renderAlbum(); };
   $('btnExport').onclick = exportCollage;
   $('draftCard').onclick = restoreDraft;
+  $('draftDel').onclick = async e => {
+    e.stopPropagation();
+    await clearDraft();
+    $('draftCard').hidden = true;
+    toast('已清除上次的草稿');
+  };
 
   $('segDir').querySelectorAll('button').forEach(b => {
     b.onclick = () => { state.long.direction = b.dataset.dir; renderEdit(); queueDraftSave(); };
