@@ -52,7 +52,9 @@ def blob(path):
 
 
 def main():
-    msg = sys.argv[1] if len(sys.argv) > 1 else 'chore: sync'
+    args = [a for a in sys.argv[1:] if not a.startswith('--tag=')]
+    tag = next((a.split('=', 1)[1] for a in sys.argv[1:] if a.startswith('--tag=')), None)
+    msg = args[0] if args else 'chore: sync'
     files = working_files()
     print(f'待上传 {len(files)} 个文件…')
 
@@ -83,6 +85,15 @@ def main():
         call('PATCH', f'/repos/{OWNER}/{REPO}/git/refs/heads/{BRANCH}', {'sha': c, 'force': True})
     else:
         call('POST', f'/repos/{OWNER}/{REPO}/git/refs', {'ref': f'refs/heads/{BRANCH}', 'sha': c})
+
+    # 打 tag 会触发 GitHub Actions 构建
+    if tag:
+        try:
+            call('POST', f'/repos/{OWNER}/{REPO}/git/refs',
+                 {'ref': f'refs/tags/{tag}', 'sha': c})
+            print(f'🏷  tag {tag} 已创建')
+        except SystemExit as e:
+            print('tag 创建失败（可能已存在）：', e)
 
     # 本地也留一条提交记录，方便以后对账/回滚
     subprocess.run(['git', 'add', '-A'], check=True)
