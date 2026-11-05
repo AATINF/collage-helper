@@ -6,13 +6,15 @@
   "scripts": {
     "www": "python3 tools/prepare_www.py",
     "sync": "npm run www && npx cap sync android",
-    "serve": "python3 -m http.server 8080"
+    "serve": "python3 -m http.server 8080",
+    "test": "node tests/logic.test.mjs && node tests/smoke.test.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.3",
     "@capacitor/core": "^8.5.3"
   },
   "devDependencies": {
-    "@capacitor/cli": "^8.5.3"
+    "@capacitor/cli": "^8.5.3",
+    "jsdom": "^31.0.0"
   }
 }

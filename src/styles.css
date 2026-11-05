@@ -208,3 +208,13 @@ button, .draft-card { transition: transform .16s var(--spring), opacity .16s eas
 @media (min-width: 620px) {
   .screen { max-width: 520px; margin: 0 auto; left: 0; right: 0; }
 }
+
+/* 相册格子上的移除按钮 */
+.tile .del {
+  position: absolute; top: 4px; left: 4px;
+  width: 22px; height: 22px; border-radius: 11px;
+  background: rgba(0, 0, 0, .45); color: #fff;
+  font-size: 15px; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+  -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px);
+}

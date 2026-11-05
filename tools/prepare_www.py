@@ -13,7 +13,7 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 WWW = ROOT / 'www'
 
 FILES = ['index.html']
-DIRS = ['src', 'lib', 'icons']
+DIRS = ['src', 'lib']
 
 # 这些后缀一旦出现在 www/ 里就说明白名单出错了，直接失败退出
 BANNED = {'.md', '.zip', '.mp4', '.gif', '.py', '.yml', '.pem', '.sh'}
