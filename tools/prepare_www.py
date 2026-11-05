@@ -13,7 +13,9 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 WWW = ROOT / 'www'
 
 FILES = ['index.html']
+# src 必须有；lib 是可选的第三方库目录，空目录不会被 git 跟踪，所以不能强求
 DIRS = ['src', 'lib']
+REQUIRED_DIRS = {'src'}
 
 # 这些后缀一旦出现在 www/ 里就说明白名单出错了，直接失败退出
 BANNED = {'.md', '.zip', '.mp4', '.gif', '.py', '.yml', '.pem', '.sh'}
@@ -45,7 +47,10 @@ def main():
     for d in DIRS:
         src = ROOT / d
         if not src.exists():
-            sys.exit('缺少目录: ' + d)
+            if d in REQUIRED_DIRS:
+                sys.exit('缺少目录: ' + d)
+            print(f'  - 跳过可选目录 {d}（不存在）')
+            continue
         shutil.copytree(src, WWW / d, ignore=shutil.ignore_patterns('*.md', 'README*', '*.map'))
         n = 0
         for p in (WWW / d).rglob('*'):
