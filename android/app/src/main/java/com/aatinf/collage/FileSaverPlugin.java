@@ -12,6 +12,8 @@ import android.os.Environment;
 import android.provider.MediaStore;
 import android.util.Base64;
 
+import androidx.core.content.FileProvider;
+
 import com.getcapacitor.JSObject;
 import com.getcapacitor.PermissionState;
 import com.getcapacitor.Plugin;
@@ -167,8 +169,14 @@ public class FileSaverPlugin extends Plugin {
             }
             MediaScannerConnection.scanFile(getContext(), new String[]{ out.getAbsolutePath() }, null, null);
 
+            // ⚠️ 不能直接用 Uri.fromFile：Android 7+ 把这个 uri 传给别的 App 会抛 FileUriExposedException
+            Uri shareUri = FileProvider.getUriForFile(
+                    getContext(),
+                    getContext().getPackageName() + ".fileprovider",
+                    out);
+
             JSObject ret = new JSObject();
-            ret.put("uri", Uri.fromFile(out).toString());
+            ret.put("uri", shareUri.toString());
             ret.put("displayPath", "Download/" + fileName);
             call.resolve(ret);
         } catch (Exception e) {
