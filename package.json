@@ -1,0 +1,18 @@
+{
+  "name": "collage-helper",
+  "version": "1.0.0",
+  "private": true,
+  "description": "拼图助手 · 本地图片拼接工具（模板网格 + 长图拼接）",
+  "scripts": {
+    "www": "python3 tools/prepare_www.py",
+    "sync": "npm run www && npx cap sync android",
+    "serve": "python3 -m http.server 8080"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.5.3",
+    "@capacitor/core": "^8.5.3"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.5.3"
+  }
+}

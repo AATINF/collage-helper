@@ -1,0 +1,13 @@
+{
+  "appId": "com.aatinf.collage",
+  "appName": "拼图助手",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  },
+  "android": {
+    "allowMixedContent": false,
+    "captureInput": true,
+    "webContentsDebuggingEnabled": false
+  }
+}

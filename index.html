@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#F2F2F7">
+<title>拼图助手</title>
+<link rel="stylesheet" href="src/styles.css">
+</head>
+<body>
+
+<!-- ① 选图页 -->
+<section id="screen-pick" class="screen active">
+  <header class="head">
+    <h1>拼图助手</h1>
+    <p class="sub">本地拼接 · 照片不上传</p>
+  </header>
+
+  <div class="scroll">
+    <div class="album" id="album"></div>
+
+    <button class="draft-card" id="draftCard" hidden>
+      <img id="draftThumb" alt="">
+      <span class="draft-txt">
+        <b>继续上次</b>
+        <em id="draftMeta"></em>
+      </span>
+      <span class="chev">›</span>
+    </button>
+  </div>
+
+  <div class="bottom-bar">
+    <button class="btn-primary" id="btnStart" disabled>开始拼图</button>
+    <button class="btn-ghost" id="btnLong">长图拼接 · 多张相接</button>
+  </div>
+</section>
+
+<!-- ② 编辑页 -->
+<section id="screen-edit" class="screen">
+  <header class="nav">
+    <button class="nav-side" id="btnBack" aria-label="返回">‹</button>
+    <span class="nav-title" id="editTitle">四宫格</span>
+    <button class="nav-side accent" id="btnExport">导出</button>
+  </header>
+
+  <div class="tpl-strip" id="tplStrip"></div>
+
+  <div class="long-tools" id="longTools" hidden>
+    <div class="seg" id="segDir">
+      <button data-dir="vertical" class="on">竖向</button>
+      <button data-dir="horizontal">横向</button>
+    </div>
+    <button class="chip" id="btnReverse">反序</button>
+  </div>
+
+  <div class="canvas-wrap">
+    <canvas id="preview"></canvas>
+  </div>
+
+  <p class="hint" id="editHint">点任意一格：替换 / 裁剪取景　长按：调整顺序</p>
+
+  <div class="toolbar">
+    <button data-tool="order">排序</button>
+    <button data-tool="crop">裁剪</button>
+    <button data-tool="quality">清晰度</button>
+    <button data-tool="more">更多</button>
+  </div>
+  <p class="quality-line" id="qualityLine">输出：高清 2048px · JPG</p>
+</section>
+
+<!-- 导出结果卡 -->
+<div class="mask" id="resultMask" hidden>
+  <div class="sheet">
+    <div class="ok-row">
+      <span class="ok-dot">✓</span>
+      <div>
+        <h3 id="resTitle">已保存到「下载」</h3>
+        <p class="muted small" id="resFile"></p>
+      </div>
+    </div>
+    <div class="ops">
+      <button id="btnOpen">打开</button>
+      <button id="btnShare" class="primary">分享</button>
+    </div>
+    <p class="muted small" id="resPath">位置：手机存储 / Download</p>
+    <button class="link" id="btnAgain">再拼一张</button>
+  </div>
+</div>
+
+<!-- 裁剪取景 -->
+<div class="mask" id="cropMask" hidden>
+  <div class="sheet">
+    <h3>裁剪取景</h3>
+    <div class="crop-stage" id="cropStage"><img id="cropImg" alt=""></div>
+    <label class="row">缩放<input type="range" id="cropZoom" min="1" max="3" step="0.01" value="1"></label>
+    <div class="ops">
+      <button id="cropCancel">取消</button>
+      <button id="cropOk" class="primary">完成</button>
+    </div>
+  </div>
+</div>
+
+<!-- 排序 -->
+<div class="mask" id="orderMask" hidden>
+  <div class="sheet">
+    <h3>调整顺序</h3>
+    <p class="muted small">点两张图交换位置；长图拼接时顺序就是上下顺序</p>
+    <div class="order-grid" id="orderGrid"></div>
+    <div class="ops"><button id="orderDone" class="primary">完成</button></div>
+  </div>
+</div>
+
+<!-- 更多 / 清晰度 -->
+<div class="mask" id="moreMask" hidden>
+  <div class="sheet">
+    <h3>更多</h3>
+    <div class="opt-list" id="qualityList">
+      <button data-q="1080"><b>省空间</b><em>最长边 1080px · 最快</em></button>
+      <button data-q="2048"><b>高清</b><em>最长边 2048px · 推荐</em></button>
+      <button data-q="4096"><b>原图</b><em>最长边 4096px · 部分手机会慢</em></button>
+    </div>
+    <div class="ops"><button id="moreClose" class="primary">完成</button></div>
+    <p class="muted small center">拼图助手 <span id="appVer">v1.0.0</span> · 照片全程留在本机</p>
+  </div>
+</div>
+
+<input type="file" id="fileInput" accept="image/*" multiple hidden>
+<div class="toast" id="toast"></div>
+
+<script type="module" src="src/app.js"></script>
+</body>
+</html>
