@@ -58,16 +58,19 @@ export function makeThumb(img, size = 220) {
 }
 
 /**
- * 把图片画进一个矩形，保持比例并填满（cover），crop 控制取景。
- * crop = { scale: 1, x: 0, y: 0 }，x/y 是 -1~1 的相对偏移。
+ * 把图片画进一个矩形。
+ * mode = 'contain'（完整显示，不裁掉任何部分，四周留白）/ 'cover'（填满格子，超出部分裁掉）
+ * crop = { scale: 1, x: 0, y: 0 }，x/y 是 -1~1 的相对偏移，只在有富余空间时生效。
  */
-export function drawCover(ctx, img, dx, dy, dw, dh, crop = {}) {
+export function drawCover(ctx, img, dx, dy, dw, dh, crop = {}, mode = 'cover') {
   const scale = crop.scale || 1;
   const ox = crop.x || 0, oy = crop.y || 0;
-  const base = Math.max(dw / img.width, dh / img.height) * scale;
+  const fit = mode === 'contain' ? Math.min : Math.max;
+  const base = fit(dw / img.width, dh / img.height) * scale;
   const w = img.width * base, h = img.height * base;
-  const x = dx + (dw - w) / 2 + ox * (w - dw) / 2;
-  const y = dy + (dh - h) / 2 + oy * (h - dh) / 2;
+  const ex = Math.max(w - dw, 0) / 2, ey = Math.max(h - dh, 0) / 2;
+  const x = dx + (dw - w) / 2 + ox * ex;
+  const y = dy + (dh - h) / 2 + oy * ey;
   ctx.save();
   ctx.beginPath();
   ctx.rect(dx, dy, dw, dh);

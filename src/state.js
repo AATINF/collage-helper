@@ -5,6 +5,7 @@ export const state = {
   mode: 'grid',      // 'grid' | 'long'
   tplId: null,       // 网格模式当前版式
   quality: 2048,     // 输出长边
+  fit: 'contain',    // 网格里照片怎么放：'contain' 完整显示 / 'cover' 填满裁剪
   long: { direction: 'vertical', reverse: false },
   lastSaved: null,   // { uri, displayPath, fileName, blob, mime }
 };
@@ -33,6 +34,7 @@ export function metaSnapshot() {
     mode: state.mode,
     tplId: state.tplId,
     quality: state.quality,
+    fit: state.fit,
     long: { ...state.long },
     crops: state.photos.map(p => p.crop || { scale: 1, x: 0, y: 0 }),
   };
@@ -43,6 +45,7 @@ export function restoreMeta(meta) {
   state.mode = meta.mode === 'long' ? 'long' : 'grid';
   state.tplId = meta.tplId || null;
   state.quality = meta.quality || 2048;
+  state.fit = meta.fit === 'cover' ? 'cover' : 'contain';
   state.long = { direction: 'vertical', reverse: false, ...(meta.long || {}) };
 }
 

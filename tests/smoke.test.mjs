@@ -62,6 +62,9 @@ ok('弹层元素齐全', ['cropMask', 'orderMask', 'moreMask', 'resultMask'].eve
 ok('选图页默认可见', $('screen-pick').classList.contains('active'));
 ok('没选图时"开始拼图"禁用', $('btnStart').disabled === true);
 ok('相册里有"添加照片"格', window.document.querySelectorAll('#album .tile.add').length === 1);
+ok('没选图时显示空状态引导', $('emptyState').hidden === false);
+ok('没选图时相册网格隐藏', $('album').hidden === true);
+ok('空状态有"从相册选择"按钮', !!$('btnPickEmpty'));
 ok('版式选择条初始为空（还没进入编辑）', $('tplStrip').children.length === 0);
 ok('版本号占位存在', !!$('appVer') && $('appVer').textContent.startsWith('v'));
 ok('fileInput 支持多选', $('fileInput').multiple === true);

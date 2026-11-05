@@ -52,6 +52,10 @@ function renderAlbum() {
     album.appendChild(add);
   }
 
+  const has = state.photos.length > 0;
+  $('emptyState').hidden = has;
+  $('album').hidden = !has;
+
   const n = state.photos.length;
   const btn = $('btnStart');
   btn.textContent = n ? `开始拼图（${n} 张）` : '开始拼图';
@@ -137,13 +141,21 @@ function renderEdit() {
   $('editHint').textContent = grid
     ? '点任意一格：替换 / 裁剪取景　长按：调整顺序'
     : '点任意一张：裁剪取景　长按：调整顺序';
-  $('qualityLine').textContent = `输出：${qualityLabel()} · JPG`;
+  $('qualityLine').textContent = `输出：${outputLine()} · JPG`;
 
   renderPreview();
 }
 
 function qualityLabel() {
   return ({ 1080: '省空间 1080px', 2048: '高清 2048px', 4096: '原图 4096px' })[state.quality] || `${state.quality}px`;
+}
+
+function fitLabel() {
+  return state.fit === 'cover' ? '填满裁剪' : '完整显示';
+}
+
+function outputLine() {
+  return state.mode === 'grid' ? `${fitLabel()} · ${qualityLabel()}` : qualityLabel();
 }
 
 function orderedPhotos() {
@@ -157,7 +169,7 @@ function renderPreview() {
   const photos = orderedPhotos();
   if (state.mode === 'grid') {
     const tpl = currentTemplate();
-    if (tpl) drawGrid(canvas, tpl, photos, PREVIEW_SIZE);
+    if (tpl) drawGrid(canvas, tpl, photos, PREVIEW_SIZE, { fit: state.fit });
   } else {
     const dir = state.long.direction;
     // 预览用较小的长边，避免每次改参数都重算大图
@@ -340,7 +352,7 @@ async function exportCollage() {
     let out;
     if (state.mode === 'grid') {
       const tpl = currentTemplate();
-      out = drawGrid(canvas, tpl, photos, state.quality);
+      out = drawGrid(canvas, tpl, photos, state.quality, { fit: state.fit });
     } else {
       out = drawLong(canvas, photos, { direction: state.long.direction, size: state.quality });
     }
@@ -401,6 +413,21 @@ function initResultSheet() {
 
 /* ---------------- 更多 / 清晰度 ---------------- */
 function initMoreSheet() {
+  const markFit = () => {
+    document.querySelectorAll('#segFit button').forEach(b => {
+      b.classList.toggle('on', b.dataset.fit === state.fit);
+    });
+  };
+  document.querySelectorAll('#segFit button').forEach(b => {
+    b.onclick = () => {
+      state.fit = b.dataset.fit === 'cover' ? 'cover' : 'contain';
+      markFit();
+      renderEdit();
+      queueDraftSave();
+    };
+  });
+  markFit();
+
   const mark = () => {
     document.querySelectorAll('#qualityList button').forEach(b => {
       b.classList.toggle('on', Number(b.dataset.q) === state.quality);
@@ -410,7 +437,7 @@ function initMoreSheet() {
     b.onclick = () => {
       state.quality = Number(b.dataset.q);
       mark();
-      $('qualityLine').textContent = `输出：${qualityLabel()} · JPG`;
+      $('qualityLine').textContent = `输出：${outputLine()} · JPG`;
       queueDraftSave();
       toast('输出已设为 ' + qualityLabel());
     };
@@ -483,6 +510,7 @@ function init() {
   bindCanvasGestures();
 
   $('btnStart').onclick = () => enterEdit('grid');
+  $('btnPickEmpty').onclick = addFromPicker;
   $('btnLong').onclick = () => enterEdit('long');
   $('btnBack').onclick = () => { show('pick'); renderAlbum(); };
   $('btnExport').onclick = exportCollage;

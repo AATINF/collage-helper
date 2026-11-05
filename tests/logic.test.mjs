@@ -97,5 +97,31 @@ console.log('\n【4】取景裁剪');
   ok('偏移不产生 NaN', b.slice(1).every(v => Number.isFinite(v)));
 }
 
+console.log('\n【5】完整显示 / 填满裁剪');
+{
+  const wide = img(4000, 1000);           // 很宽的风景图放进正方形格子
+  const c1 = fakeCanvas();
+  drawCover(c1._ctx, wide, 0, 0, 500, 500, {}, 'contain');
+  const [, a1] = c1._ctx.calls.filter(x => x[0] === 'drawImage')[0];
+  ok('完整显示：不裁切（宽高都 ≤ 格子）', a1[3] <= 500.01 && a1[4] <= 500.01, `${a1[3]}x${a1[4]}`);
+  ok('完整显示：比例保持', near(a1[3] / a1[4], 4, 1e-6), `${a1[3]}/${a1[4]}`);
+  ok('完整显示：水平居中', Math.abs(a1[1] - 0) < 0.01 && Math.abs(a1[1] + a1[3] / 2 - 250) < 0.01, `x=${a1[1]}`);
+
+  const c2 = fakeCanvas();
+  drawCover(c2._ctx, wide, 0, 0, 500, 500, {}, 'cover');
+  const [, a2] = c2._ctx.calls.filter(x => x[0] === 'drawImage')[0];
+  ok('填满裁剪：短边至少撑满格子', Math.min(a2[3], a2[4]) >= 500 - 0.01, `${a2[3]}x${a2[4]}`);
+  ok('填满裁剪：确实被裁（宽 > 格子）', a2[3] > 500, `${a2[3]}`);
+}
+{
+  const c = fakeCanvas();
+  const tpl = templatesFor(2)[0];
+  const photos = [{ img: img(1080, 2400), crop: {} }, { img: img(1080, 2400), crop: {} }];
+  const out = drawGrid(c, tpl, photos, 1024, { fit: 'contain' });
+  const draws = c._ctx.calls.filter(x => x[0] === 'drawImage');
+  ok('网格默认完整显示：两张竖图都不裁', draws.every(([, a]) => a[4] <= 513), JSON.stringify(draws.map(d => d[1].slice(3, 5))));
+  ok('输出尺寸不受影响', out.width === 1024 && out.height === 1024);
+}
+
 console.log(`\n结果：${pass} 通过 / ${fail} 失败\n`);
 process.exit(fail ? 1 : 0);

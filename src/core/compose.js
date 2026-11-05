@@ -8,7 +8,8 @@ export const MAX_LONG_EDGE = 16384;   // 长图总高/总宽上限，超过就�
 const BG = '#FFFFFF';
 
 /** 网格拼图：输出正方形，size 为边长 */
-export function drawGrid(canvas, tpl, photos, size) {
+export function drawGrid(canvas, tpl, photos, size, opts = {}) {
+  const fit = opts.fit === 'cover' ? 'cover' : 'contain';
   canvas.width = size;
   canvas.height = size;
   const ctx = canvas.getContext('2d');
@@ -23,7 +24,7 @@ export function drawGrid(canvas, tpl, photos, size) {
     // 用整像素计算宽高，避免格子之间出现 1px 缝
     const dw = Math.round((x + w) * size) - dx;
     const dh = Math.round((y + h) * size) - dy;
-    drawCover(ctx, photo.img, dx, dy, dw, dh, photo.crop);
+    drawCover(ctx, photo.img, dx, dy, dw, dh, photo.crop, fit);
   });
   return { width: size, height: size };
 }
