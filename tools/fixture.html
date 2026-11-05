@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>视觉验收（开发用，不进 APK）</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #222; }
+  /* 用 fixed 贴合可视区，避免移动端 100vh 把底部裁掉 */
+  iframe { border: 0; position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+</style>
+</head>
+<body>
+<!-- 用生成的示例图直接跳进编辑页，方便在真机浏览器里验收拼图效果。
+     不会被 prepare_www.py 打进 APK（白名单只收 index.html / src / lib）。 -->
+<iframe id="app"></iframe>
+<script>
+const frame = document.getElementById('app');
+// 加时间戳，避免浏览器缓存 old js 导致「改了没生效」的假象
+frame.src = '../index.html?cb=' + Date.now();
+const q = new URLSearchParams(location.search);
+const count = Number(q.get('n') || 4);
+const mode = q.get('mode') || 'grid';
+
+async function boot() {
+  const w = frame.contentWindow;
+  // 等子页面把 __collage 挂上（缓存命中时 load 事件可能早于绑定，所以用轮询而不是监听）
+  for (let i = 0; i < 100; i++) {
+    if (w.__collage && w.__collage.addSamplePhotos) break;
+    await new Promise(r => setTimeout(r, 80));
+  }
+  try {
+    await w.__collage.addSamplePhotos(count);
+    w.__collage.enterEdit(mode);
+  } catch (e) {
+    document.body.insertAdjacentHTML('afterbegin',
+      '<pre style="color:#fff;background:#c00;padding:10px;margin:0">fixture 出错：' + (e && (e.stack || e.message)) + '</pre>');
+  }
+}
+boot();
+</script>
+</body>
+</html>

@@ -10,7 +10,7 @@
  */
 import { state, update, subscribe, metaSnapshot, restoreMeta, resetPhotos } from './state.js';
 import { templatesFor, templateById, templateSVG } from './core/templates.js';
-import { loadImage, makeThumb } from './core/image.js';
+import { loadImage, makeThumb, dominantColor } from './core/image.js';
 import { drawGrid, drawLong, canvasToBlob, MAX_LONG_EDGE } from './core/compose.js';
 import { pickImages, onlyImages } from './io/picker.js';
 import { saveImage, openSaved, shareSaved, timestampName, IS_APP } from './io/bridge.js';
@@ -75,7 +75,9 @@ async function addPhotos(files) {
   for (const file of files) {
     try {
       const img = await loadImage(file);
-      state.photos.push({ file, img, thumb: makeThumb(img, 320), crop: { scale: 1, x: 0, y: 0 } });
+      state.photos.push({
+        file, img, thumb: makeThumb(img, 320), bg: dominantColor(img), crop: { scale: 1, x: 0, y: 0 },
+      });
     } catch (e) {
       console.warn('跳过一张读不了的图', file.name, e);
       toast(`「${file.name || '某张图'}」打不开，已跳过`);
@@ -106,6 +108,7 @@ function enterEdit(mode) {
   }
   renderEdit();
   show('edit');
+  requestAnimationFrame(renderPreview);
   queueDraftSave();
 }
 
@@ -164,20 +167,56 @@ function orderedPhotos() {
   return list;
 }
 
+/** 长图模式下成品的宽高比（竖向：宽/高；横向：宽/高） */
+function longAspect() {
+  const photos = orderedPhotos();
+  if (!photos.length) return 1;
+  const vertical = state.long.direction === 'vertical';
+  const sum = photos.reduce((acc, p) => {
+    const w = p.img.width, h = p.img.height;
+    return acc + (vertical ? h / w : w / h);
+  }, 0);
+  return vertical ? 1 / sum : sum;
+}
+
+/** 算出画布该显示多大（等比塞进可用区域） */
+function previewBox() {
+  const canvas = $('preview');
+  const wrap = canvas.parentElement;
+  const W = (wrap.clientWidth || 300) * 0.96;
+  const H = (wrap.clientHeight || 300) * 0.94;
+  const ar = state.mode === 'grid' ? 1 : longAspect();
+  let cw = W, ch = W / ar;
+  if (ch > H) { ch = H; cw = H * ar; }
+  return { cw: Math.max(1, Math.floor(cw)), ch: Math.max(1, Math.floor(ch)) };
+}
+
+/**
+ * 画预览。
+ * 关键：先算显示尺寸，再按同一比例决定画布的像素尺寸，
+ * 这样 CSS 盒子和 canvas 内在尺寸永远等比，不会被拉伸或裁掉（长图尤其明显）。
+ */
 function renderPreview() {
   const canvas = $('preview');
   const photos = orderedPhotos();
+  if (!photos.length) return;
+
+  const { cw, ch } = previewBox();
+  canvas.style.width = cw + 'px';
+  canvas.style.height = ch + 'px';
+
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
   if (state.mode === 'grid') {
     const tpl = currentTemplate();
-    if (tpl) drawGrid(canvas, tpl, photos, PREVIEW_SIZE, { fit: state.fit });
+    if (!tpl) return;
+    drawGrid(canvas, tpl, photos, Math.round(Math.max(cw, ch) * dpr), { fit: state.fit });
   } else {
-    const dir = state.long.direction;
-    // 预览用较小的长边，避免每次改参数都重算大图
-    drawLong(canvas, photos, { direction: dir, size: dir === 'vertical' ? 640 : 900 });
+    const vertical = state.long.direction === 'vertical';
+    drawLong(canvas, photos, {
+      direction: state.long.direction,
+      size: Math.round((vertical ? cw : ch) * dpr),
+    });
   }
-  // 预览时把 canvas 显示尺寸交给 CSS 控制
-  canvas.style.width = '';
-  canvas.style.height = '';
 }
 
 /* ---------------- 点击 / 长按定位 ---------------- */
@@ -405,6 +444,12 @@ function initResultSheet() {
     show('pick');
     await clearDraft();
     refreshDraftCard();
+
+  let rzTimer = 0;
+  window.addEventListener('resize', () => {
+    clearTimeout(rzTimer);
+    rzTimer = setTimeout(renderPreview, 120);
+  });
   };
   $('resultMask').addEventListener('click', ev => {
     if (ev.target.id === 'resultMask') $('resultMask').hidden = true;
@@ -459,6 +504,12 @@ function queueDraftSave() {
     try {
       await saveDraft({ blobs: state.photos.map(p => p.file), meta: metaSnapshot() });
       refreshDraftCard();
+
+  let rzTimer = 0;
+  window.addEventListener('resize', () => {
+    clearTimeout(rzTimer);
+    rzTimer = setTimeout(renderPreview, 120);
+  });
     } catch (e) {
       console.warn('草稿保存失败', e);
     }
@@ -487,7 +538,7 @@ async function restoreDraft() {
   for (const f of d.blobs) {
     try {
       const img = await loadImage(f);
-      state.photos.push({ file: f, img, thumb: makeThumb(img, 320), crop: { scale: 1, x: 0, y: 0 } });
+      state.photos.push({ file: f, img, thumb: makeThumb(img, 320), bg: dominantColor(img), crop: { scale: 1, x: 0, y: 0 } });
     } catch (e) { /* 跳过坏图 */ }
   }
   restoreMeta(d.meta);
@@ -499,6 +550,33 @@ async function restoreDraft() {
   toast('已恢复上次的拼图');
   const card = $('draftCard');
   card.hidden = true;
+}
+
+/* ---------------- 开发钩子：生成示例照片（只给 tools/fixture.html 用，界面上没有入口） ---------------- */
+function sampleFile(i, w, h) {
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  const x = c.getContext('2d');
+  const g = x.createLinearGradient(0, 0, w, h);
+  const pal = [['#C7D2FE', '#6D74F0'], ['#FBCFE8', '#EC4899'], ['#BFDBFE', '#3B82F6'], ['#FED7AA', '#F97316']];
+  g.addColorStop(0, pal[i % 4][0]); g.addColorStop(1, pal[i % 4][1]);
+  x.fillStyle = g; x.fillRect(0, 0, w, h);
+  x.fillStyle = 'rgba(255,255,255,.9)';
+  x.font = `bold ${Math.round(Math.min(w, h) / 3)}px sans-serif`;
+  x.textAlign = 'center'; x.textBaseline = 'middle';
+  x.fillText(String(i + 1), w / 2, h / 2);
+  return new Promise(res => c.toBlob(b => res(new File([b], `sample-${i + 1}.jpg`, { type: 'image/jpeg' })), 'image/jpeg', .9));
+}
+
+async function addSamplePhotos(n = 4) {
+  const shapes = [[1080, 1920], [1920, 1080], [1200, 1200], [1200, 1600], [1080, 2400], [1600, 1200]];
+  const files = [];
+  for (let i = 0; i < n; i++) {
+    const [w, h] = shapes[i % shapes.length];
+    files.push(await sampleFile(i, w, h));
+  }
+  await addPhotos(files);
+  return state.photos.length;
 }
 
 /* ---------------- 初始化 ---------------- */
@@ -544,8 +622,14 @@ function init() {
 
   refreshDraftCard();
 
-  // 浏览器里调试用：window.__collage 能看到内部状态
-  window.__collage = { state, MAX_LONG_EDGE, IS_APP };
+  let rzTimer = 0;
+  window.addEventListener('resize', () => {
+    clearTimeout(rzTimer);
+    rzTimer = setTimeout(renderPreview, 120);
+  });
+
+  // 浏览器里调试用：window.__collage 能看到内部状态，也能塞示例图做视觉验收
+  window.__collage = { state, MAX_LONG_EDGE, IS_APP, addSamplePhotos, enterEdit };
 }
 
 document.addEventListener('DOMContentLoaded', init);

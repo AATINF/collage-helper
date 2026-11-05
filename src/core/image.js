@@ -78,3 +78,22 @@ export function drawCover(ctx, img, dx, dy, dw, dh, crop = {}, mode = 'cover') {
   ctx.drawImage(img.bitmap, x, y, w, h);
   ctx.restore();
 }
+
+/**
+ * 取一张图的主色调（缩到 1x1 取平均色），再和白色混合成柔和的浅色。
+ * 用途：完整显示模式下，格子里的留白用照片自己的色调填充，
+ * 看起来像设计过的留白，而不是空着的白块。
+ */
+export function dominantColor(img, mixWithWhite = 0.6) {
+  try {
+    const c = document.createElement('canvas');
+    c.width = c.height = 1;
+    const ctx = c.getContext('2d');
+    ctx.drawImage(img.bitmap, 0, 0, 1, 1);
+    const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
+    const m = v => Math.round(v + (255 - v) * mixWithWhite);
+    return `rgb(${m(r)}, ${m(g)}, ${m(b)})`;
+  } catch (e) {
+    return '#F2F2F7';
+  }
+}

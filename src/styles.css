@@ -18,6 +18,9 @@
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
+/* hidden 必须压过组件自己的 display，否则 [hidden] 的网格/弹性布局会照常显示 */
+[hidden] { display: none !important; }
+
 html, body {
   margin: 0;
   height: 100%;
@@ -36,12 +39,14 @@ button, .draft-card { transition: transform .16s var(--spring), opacity .16s eas
 /* ---------- 屏幕容器 ---------- */
 .screen {
   position: fixed; inset: 0;
+  overflow: hidden;
+  visibility: hidden;
   display: flex; flex-direction: column;
   padding: calc(var(--safe-t) + 10px) 16px calc(var(--safe-b) + 12px);
   opacity: 0; pointer-events: none; transform: translateY(10px);
   transition: opacity .26s ease, transform .3s var(--spring);
 }
-.screen.active { opacity: 1; pointer-events: auto; transform: none; }
+.screen.active { opacity: 1; pointer-events: auto; transform: none; visibility: visible; }
 
 /* ---------- ① 选图页 ---------- */
 .hero {
@@ -60,7 +65,7 @@ button, .draft-card { transition: transform .16s var(--spring), opacity .16s eas
 /* 空状态：不选图时给一句引导，页面不显得空旷 */
 .empty {
   display: flex; flex-direction: column; align-items: center; text-align: center;
-  gap: 6px; padding: 34px 20px; border-radius: 22px;
+  gap: 6px; padding: 34px 20px; border-radius: 22px; margin: auto;
   background: rgba(255, 255, 255, .6); max-width: 460px; margin: 4px auto 0;
 }
 .empty-icon svg { width: 56px; height: 56px; }
@@ -68,7 +73,7 @@ button, .draft-card { transition: transform .16s var(--spring), opacity .16s eas
 .empty p { margin: 0; font-size: 13px; color: var(--ink2); line-height: 1.5; }
 .btn-primary.compact { height: 46px; padding: 0 26px; font-size: 15px; margin-top: 10px; border-radius: 14px; }
 
-.scroll { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding-bottom: 8px; }
+.scroll { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding-bottom: 8px; display: flex; flex-direction: column; }
 
 .album { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; max-width: 460px; margin: 0 auto; }
 .tile {
@@ -140,12 +145,19 @@ button, .draft-card { transition: transform .16s var(--spring), opacity .16s eas
 .chip { padding: 9px 16px; border-radius: 12px; background: #fff; font-size: 14px; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
 .chip.on { background: var(--accent); color: #fff; }
 
-.canvas-wrap { flex: 1; display: flex; align-items: center; justify-content: center; min-height: 0; }
+.canvas-wrap {
+  /* height:0 + flex-grow 让这里的高度成为"确定值"，
+     否则绝对定位子元素/百分比高度在 WebView 里算不出来，长图会被直接裁掉 */
+  flex: 1 1 auto; height: 0; min-height: 0;
+  position: relative; overflow: hidden;
+}
 #preview {
-  max-width: 100%; max-height: 100%; border-radius: 18px; background: #fff;
+  position: absolute; inset: 0; margin: auto;
+  max-width: 100%; max-height: 100%;
+  border-radius: 18px; background: #fff;
   box-shadow: 0 10px 28px rgba(0, 0, 0, .12);
 }
-.hint { margin: 12px 6px 10px; font-size: 12px; color: var(--ink2); text-align: center; }
+.hint { margin: 8px 6px 8px; font-size: 12px; color: var(--ink2); text-align: center; flex: 0 0 auto; }
 
 .toolbar {
   display: flex; gap: 8px; background: var(--card); border-radius: var(--r-card);
@@ -246,3 +258,10 @@ button, .draft-card { transition: transform .16s var(--spring), opacity .16s eas
 .seg.wide { width: 100%; }
 .seg.wide button { flex: 1; padding: 11px 0; font-size: 15px; }
 .tip { line-height: 1.6; margin: 8px 0 0; }
+
+/* 首屏能力标签 */
+.badges { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; justify-content: center; }
+.badges span {
+  font-size: 12px; color: var(--ink2); background: #fff;
+  border-radius: 999px; padding: 6px 11px; box-shadow: 0 1px 3px rgba(0, 0, 0, .05);
+}

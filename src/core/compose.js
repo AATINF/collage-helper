@@ -7,9 +7,34 @@ import { drawCover } from './image.js';
 export const MAX_LONG_EDGE = 16384;   // 长图总高/总宽上限，超过就整体等比缩小，避免闪退
 const BG = '#FFFFFF';
 
-/** 网格拼图：输出正方形，size 为边长 */
+/** 圆角矩形路径（ctx.roundRect 在旧 WebView 上没有，这里自己画） */
+function roundRectPath(ctx, x, y, w, h, r) {
+  const rr = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + rr, y);
+  ctx.lineTo(x + w - rr, y);
+  ctx.arcTo(x + w, y, x + w, y + rr, rr);
+  ctx.lineTo(x + w, y + h - rr);
+  ctx.arcTo(x + w, y + h, x + w - rr, y + h, rr);
+  ctx.lineTo(x + rr, y + h);
+  ctx.arcTo(x, y + h, x, y + h - rr, rr);
+  ctx.lineTo(x, y + rr);
+  ctx.arcTo(x, y, x + rr, y, rr);
+  ctx.closePath();
+}
+
+/**
+ * 网格拼图：输出正方形。
+ * 视觉规则（很重要，决定成品好不好看）：四周留白 + 格子之间留缝 + 圆角 + 浅灰格子底色。
+ * 这样"完整显示"模式下照片两侧的空白看起来是设计感，而不是没画满。
+ */
 export function drawGrid(canvas, tpl, photos, size, opts = {}) {
   const fit = opts.fit === 'cover' ? 'cover' : 'contain';
+  const pad = Math.round(size * 0.014);      // 画布外边距
+  const gap = Math.round(size * 0.012);      // 格子间距
+  const radius = Math.round(size * 0.016);   // 格子圆角
+  const cellBg = '#F2F2F7';
+
   canvas.width = size;
   canvas.height = size;
   const ctx = canvas.getContext('2d');
@@ -17,15 +42,25 @@ export function drawGrid(canvas, tpl, photos, size, opts = {}) {
   ctx.fillRect(0, 0, size, size);
   ctx.imageSmoothingQuality = 'high';
 
+  const inner = size - pad * 2;
+
   tpl.cells.forEach(([x, y, w, h], i) => {
     const photo = photos[i];
-    if (!photo) return;
-    const dx = Math.round(x * size), dy = Math.round(y * size);
-    // 用整像素计算宽高，避免格子之间出现 1px 缝
-    const dw = Math.round((x + w) * size) - dx;
-    const dh = Math.round((y + h) * size) - dy;
-    drawCover(ctx, photo.img, dx, dy, dw, dh, photo.crop, fit);
+    const X = Math.round(pad + x * inner) + (x > 0 ? Math.round(gap / 2) : 0);
+    const Y = Math.round(pad + y * inner) + (y > 0 ? Math.round(gap / 2) : 0);
+    const W = Math.round(w * inner) - gap;
+    const H = Math.round(h * inner) - gap;
+    if (W <= 0 || H <= 0) return;
+
+    ctx.save();
+    roundRectPath(ctx, X, Y, W, H, radius);
+    ctx.fillStyle = (photo && photo.bg) || cellBg;
+    ctx.fill();
+    ctx.clip();
+    if (photo && photo.img) drawCover(ctx, photo.img, X, Y, W, H, photo.crop, fit);
+    ctx.restore();
   });
+
   return { width: size, height: size };
 }
 

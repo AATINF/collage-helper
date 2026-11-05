@@ -21,6 +21,7 @@ function fakeCtx() {
     fillStyle: '', imageSmoothingQuality: '',
     fillRect: (...a) => calls.push(['fillRect', a]),
     save() {}, restore() {}, beginPath() {}, rect() {}, clip() {},
+    moveTo() {}, lineTo() {}, arcTo() {}, closePath() {}, arc() {}, fill() {},
     drawImage: (...a) => calls.push(['drawImage', a]),
   };
 }
