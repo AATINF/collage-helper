@@ -11,7 +11,7 @@
 import { state, update, subscribe, metaSnapshot, restoreMeta, resetPhotos } from './state.js';
 import { templatesFor, templateById, templateSVG } from './core/templates.js';
 import { loadImage, makeThumb, dominantColor } from './core/image.js';
-import { drawGrid, drawLong, canvasToBlob, MAX_LONG_EDGE } from './core/compose.js';
+import { drawGrid, drawLong, drawJustified, layoutJustified, canvasToBlob, MAX_LONG_EDGE } from './core/compose.js';
 import { pickImages, onlyImages } from './io/picker.js';
 import { saveImage, openSaved, shareSaved, timestampName, IS_APP } from './io/bridge.js';
 import { saveDraft, loadDraft, clearDraft } from './io/draft.js';
@@ -117,13 +117,17 @@ function currentTemplate() {
 }
 
 function renderEdit() {
-  const grid = state.mode === 'grid';
-  $('tplStrip').hidden = !grid;
-  $('longTools').hidden = grid;
+  const mode = state.mode;
+  document.querySelectorAll('#segMode button').forEach(b => {
+    b.classList.toggle('on', b.dataset.mode === mode);
+  });
+  $('tplStrip').hidden = mode !== 'grid';
+  $('longTools').hidden = mode !== 'long';
+  $('flowTools').hidden = mode !== 'flow';
 
-  if (grid) {
+  if (mode === 'grid') {
     const tpl = currentTemplate();
-    $('editTitle').textContent = tpl ? tpl.name : '拼图';
+    $('editTitle').textContent = tpl ? tpl.name : '网格';
     const strip = $('tplStrip');
     strip.innerHTML = '';
     templatesFor(state.photos.length).forEach(t => {
@@ -133,17 +137,36 @@ function renderEdit() {
       b.onclick = () => { state.tplId = t.id; renderEdit(); queueDraftSave(); };
       strip.appendChild(b);
     });
-  } else {
+  } else if (mode === 'long') {
     $('editTitle').textContent = '长图拼接';
-    $('segDir').querySelectorAll('button').forEach(b => {
+    document.querySelectorAll('#segMode button').forEach(b => {
+    b.onclick = () => enterEdit(b.dataset.mode);
+  });
+  $('segDensity').querySelectorAll('button').forEach(b => {
+    b.onclick = () => {
+      state.flow.density = b.dataset.d;
+      $('segDensity').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+      renderPreview();
+      queueDraftSave();
+    };
+  });
+
+  $('segDir').querySelectorAll('button').forEach(b => {
       b.classList.toggle('on', b.dataset.dir === state.long.direction);
     });
     $('btnReverse').classList.toggle('on', state.long.reverse);
+  } else {
+    $('editTitle').textContent = '无缝拼接';
+    $('segDensity').querySelectorAll('button').forEach(b => {
+      b.classList.toggle('on', b.dataset.d === state.flow.density);
+    });
   }
 
-  $('editHint').textContent = grid
-    ? '点任意一格：替换 / 裁剪取景　长按：调整顺序'
-    : '点任意一张：裁剪取景　长按：调整顺序';
+  $('editHint').textContent = {
+    flow: '同一行照片一样高，不裁剪不留白　点一张：裁剪取景',
+    grid: '点任意一格：替换 / 裁剪取景　长按：调整顺序',
+    long: '点任意一张：裁剪取景　长按：调整顺序',
+  }[mode];
   $('qualityLine').textContent = `输出：${outputLine()} · JPG`;
 
   renderPreview();
@@ -158,13 +181,29 @@ function fitLabel() {
 }
 
 function outputLine() {
-  return state.mode === 'grid' ? `${fitLabel()} · ${qualityLabel()}` : qualityLabel();
+  if (state.mode === 'grid') return `${fitLabel()} · ${qualityLabel()}`;
+  if (state.mode === 'flow') return `无缝等高 · ${qualityLabel()}`;
+  return qualityLabel();
 }
 
 function orderedPhotos() {
   const list = state.photos.slice();
   if (state.mode === 'long' && state.long.reverse) list.reverse();
   return list;
+}
+
+/** 无缝模式：一行大概放多高（数值越大越紧凑） */
+function densityTarget(width) {
+  const k = { compact: 3, normal: 2, loose: 1.4 }[state.flow.density] || 2;
+  return width / k;
+}
+
+/** 无缝模式成品的宽高比（用 1000 宽试算，比例与最终尺寸无关） */
+function flowAspect() {
+  const { width, height } = layoutJustified(orderedPhotos(), {
+    width: 1000, targetRowHeight: densityTarget(1000),
+  });
+  return width / height;
 }
 
 /** 长图模式下成品的宽高比（竖向：宽/高；横向：宽/高） */
@@ -185,7 +224,7 @@ function previewBox() {
   const wrap = canvas.parentElement;
   const W = (wrap.clientWidth || 300) * 0.96;
   const H = (wrap.clientHeight || 300) * 0.94;
-  const ar = state.mode === 'grid' ? 1 : longAspect();
+  const ar = state.mode === 'grid' ? 1 : (state.mode === 'long' ? longAspect() : flowAspect());
   let cw = W, ch = W / ar;
   if (ch > H) { ch = H; cw = H * ar; }
   return { cw: Math.max(1, Math.floor(cw)), ch: Math.max(1, Math.floor(ch)) };
@@ -210,12 +249,15 @@ function renderPreview() {
     const tpl = currentTemplate();
     if (!tpl) return;
     drawGrid(canvas, tpl, photos, Math.round(Math.max(cw, ch) * dpr), { fit: state.fit });
-  } else {
+  } else if (state.mode === 'long') {
     const vertical = state.long.direction === 'vertical';
     drawLong(canvas, photos, {
       direction: state.long.direction,
       size: Math.round((vertical ? cw : ch) * dpr),
     });
+  } else {
+    const width = Math.round(cw * dpr);
+    drawJustified(canvas, photos, { width, targetRowHeight: Math.round(densityTarget(width)) });
   }
 }
 
@@ -392,12 +434,16 @@ async function exportCollage() {
     if (state.mode === 'grid') {
       const tpl = currentTemplate();
       out = drawGrid(canvas, tpl, photos, state.quality, { fit: state.fit });
-    } else {
+    } else if (state.mode === 'long') {
       out = drawLong(canvas, photos, { direction: state.long.direction, size: state.quality });
+    } else {
+      out = drawJustified(canvas, photos, {
+        width: state.quality, targetRowHeight: Math.round(densityTarget(state.quality)),
+      });
     }
 
     const blob = await canvasToBlob(canvas);
-    const fileName = timestampName(state.mode === 'grid' ? '拼图' : '长图');
+    const fileName = timestampName(state.mode === 'long' ? '长图' : '拼图');
     const ret = await saveImage(blob, fileName, 'image/jpeg');
 
     state.lastSaved = { ...ret, blob, fileName, mime: 'image/jpeg' };
@@ -587,7 +633,7 @@ function init() {
   initMoreSheet();
   bindCanvasGestures();
 
-  $('btnStart').onclick = () => enterEdit('grid');
+  $('btnStart').onclick = () => enterEdit('flow');
   $('btnPickEmpty').onclick = addFromPicker;
   $('btnLong').onclick = () => enterEdit('long');
   $('btnBack').onclick = () => { show('pick'); renderAlbum(); };
@@ -599,6 +645,18 @@ function init() {
     $('draftCard').hidden = true;
     toast('已清除上次的草稿');
   };
+
+  document.querySelectorAll('#segMode button').forEach(b => {
+    b.onclick = () => enterEdit(b.dataset.mode);
+  });
+  $('segDensity').querySelectorAll('button').forEach(b => {
+    b.onclick = () => {
+      state.flow.density = b.dataset.d;
+      $('segDensity').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+      renderPreview();
+      queueDraftSave();
+    };
+  });
 
   $('segDir').querySelectorAll('button').forEach(b => {
     b.onclick = () => { state.long.direction = b.dataset.dir; renderEdit(); queueDraftSave(); };

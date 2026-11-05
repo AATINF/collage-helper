@@ -66,7 +66,22 @@
     <button class="nav-side accent" id="btnExport">导出</button>
   </header>
 
-  <div class="tpl-strip" id="tplStrip"></div>
+  <div class="seg mode-seg" id="segMode">
+    <button data-mode="flow" class="on">无缝拼接</button>
+    <button data-mode="grid">网格</button>
+    <button data-mode="long">长图</button>
+  </div>
+
+  <div class="tpl-strip" id="tplStrip" hidden></div>
+
+  <div class="long-tools" id="flowTools">
+    <div class="seg" id="segDensity">
+      <button data-d="compact">紧凑</button>
+      <button data-d="normal" class="on">标准</button>
+      <button data-d="loose">宽松</button>
+    </div>
+    <span class="muted small">同一行一样高 · 不裁剪</span>
+  </div>
 
   <div class="long-tools" id="longTools" hidden>
     <div class="seg" id="segDir">

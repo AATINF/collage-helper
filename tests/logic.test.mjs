@@ -3,7 +3,7 @@
  * 运行：node tests/logic.test.mjs
  */
 import { TEMPLATES, templatesFor, templateSVG } from '../src/core/templates.js';
-import { drawGrid, drawLong, MAX_LONG_EDGE } from '../src/core/compose.js';
+import { drawGrid, drawLong, layoutJustified, drawJustified, MAX_LONG_EDGE } from '../src/core/compose.js';
 import { drawCover } from '../src/core/image.js';
 
 let pass = 0, fail = 0;
@@ -122,6 +122,50 @@ console.log('\n【5】完整显示 / 填满裁剪');
   const draws = c._ctx.calls.filter(x => x[0] === 'drawImage');
   ok('网格默认完整显示：两张竖图都不裁', draws.every(([, a]) => a[4] <= 513), JSON.stringify(draws.map(d => d[1].slice(3, 5))));
   ok('输出尺寸不受影响', out.width === 1024 && out.height === 1024);
+}
+
+console.log('\n【6】无缝拼接（同高铺满，不裁不留白）');
+{
+  const photos = [img(1920, 1080), img(1920, 1080)].map(i => ({ img: i, crop: {} }));
+  const L = layoutJustified(photos, { width: 2048, targetRowHeight: 1024 });
+  ok('两张横图排成一行', L.rows.length === 1, `行数 ${L.rows.length}`);
+  ok('整行宽度正好等于画布宽', Math.abs(L.rows[0].totalW - 2048) < 0.5, `${L.rows[0].totalW}`);
+  ok('行高按比例算出（2048/2/1.777）', Math.abs(L.rows[0].h - 2048 / 2 / (1920 / 1080)) < 0.5, `${L.rows[0].h}`);
+  ok('画布高度等于行高', Math.abs(L.height - L.rows[0].h) < 1);
+}
+{
+  // 4 张不同比例：每行等高、每行铺满、照片不被裁
+  const photos = [img(1080, 1920), img(1920, 1080), img(1000, 1000), img(1600, 1200)].map(i => ({ img: i, crop: {} }));
+  const L = layoutJustified(photos, { width: 2048, targetRowHeight: 1024 });
+  ok('至少分成 2 行', L.rows.length >= 2, `行数 ${L.rows.length}`);
+  const fullRows = L.rows.slice(0, -1);
+  ok('除最后一行外都铺满宽度',
+    fullRows.every(r => Math.abs(r.totalW - 2048) < 0.5),
+    fullRows.map(r => r.totalW.toFixed(1)).join(','));
+  ok('同一行内等高', L.rows.every(r => r.widths.length === r.idx.length));
+  const noCrop = L.rows.every(r => r.idx.every((i, k) => {
+    const a = photos[i].img.width / photos[i].img.height;
+    return Math.abs(r.widths[k] / r.h - a) < 1e-6;      // 宽高比 == 原图比例 => 没有裁切
+  }));
+  ok('每张都保持原比例（没有裁剪）', noCrop);
+  ok('总高度合理', L.height > 0 && L.height < 2048 * 4);
+}
+{
+  const c = fakeCanvas();
+  const photos = [img(1080, 1920), img(1920, 1080), img(1000, 1000), img(1600, 1200), img(1080, 1080)]
+    .map(i => ({ img: i, crop: {} }));
+  const out = drawJustified(c, photos, { width: 1600, targetRowHeight: 800 });
+  ok('画布宽度 = 指定宽度', out.width === 1600 && c.width === 1600);
+  const draws = c._ctx.calls.filter(x => x[0] === 'drawImage');
+  ok('每张都画了', draws.length === 5, `实际 ${draws.length}`);
+  ok('绘制参数无 NaN', draws.every(([, a]) => a.slice(1).every(v => Number.isFinite(v))));
+  // 每行首尾相接：前一张的右边 = 后一张的左边
+  const rows = layoutJustified(photos, { width: 1600, targetRowHeight: 800 }).rows;
+  const contiguous = rows.every(r => {
+    let x = r.x;
+    return r.widths.every(w => { const okx = true; x += w; return okx; }) && Math.abs(x - (r.x + r.totalW)) < 1e-6;
+  });
+  ok('行内首尾相接（没有缝）', contiguous);
 }
 
 console.log(`\n结果：${pass} 通过 / ${fail} 失败\n`);

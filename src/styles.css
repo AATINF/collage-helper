@@ -272,3 +272,8 @@ button, .draft-card { transition: transform .16s var(--spring), opacity .16s eas
   color: var(--ink2); font-size: 15px; line-height: 1;
   display: flex; align-items: center; justify-content: center; margin-right: 2px;
 }
+
+/* 模式切换条 */
+.mode-seg { margin: 4px 0 10px; width: 100%; }
+.mode-seg button { flex: 1; padding: 9px 0; font-size: 14px; }
+.long-tools .muted.small { font-size: 12px; }

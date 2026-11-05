@@ -23,6 +23,16 @@ src/
     └── toast.js      底部提示
 ```
 
+## 三种拼法（对应 state.mode）
+
+| 模式 | 规则 | 会裁切吗 | 实现 |
+|---|---|---|---|
+| `flow` 无缝拼接（默认） | 排成一行行，**同一行照片等高**，每行铺满画布宽度 | 不裁 | `core/compose.js` 的 `layoutJustified` / `drawJustified`（Flickr justified layout） |
+| `long` 长图 | 竖向=所有照片**同宽**；横向=**同高** | 不裁 | `drawLong` |
+| `grid` 网格模板 | 固定版式，格子比例固定 | 看设置：完整显示=留白，填满裁剪=裁 | `drawGrid` |
+
+`flow` 的密度由 `state.flow.density` 控制（compact / normal / loose → 目标行高 = 宽度 ÷ 3 / 2 / 1.4）。
+
 ## 数据流
 
 ```

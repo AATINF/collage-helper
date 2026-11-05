@@ -2,11 +2,12 @@
 
 export const state = {
   photos: [],        // [{ file, img:{bitmap,width,height}, thumb, crop:{scale,x,y} }]
-  mode: 'grid',      // 'grid' | 'long'
+  mode: 'flow',      // 'flow' 无缝（同高铺满） | 'grid' 网格模板 | 'long' 长图（同宽/同高）
   tplId: null,       // 网格模式当前版式
   quality: 2048,     // 输出长边
   fit: 'contain',    // 网格里照片怎么放：'contain' 完整显示 / 'cover' 填满裁剪
   long: { direction: 'vertical', reverse: false },
+  flow: { density: 'normal' },   // compact | normal | loose
   lastSaved: null,   // { uri, displayPath, fileName, blob, mime }
 };
 
@@ -36,17 +37,19 @@ export function metaSnapshot() {
     quality: state.quality,
     fit: state.fit,
     long: { ...state.long },
+    flow: { ...state.flow },
     crops: state.photos.map(p => p.crop || { scale: 1, x: 0, y: 0 }),
   };
 }
 
 export function restoreMeta(meta) {
   if (!meta) return;
-  state.mode = meta.mode === 'long' ? 'long' : 'grid';
+  state.mode = ['long', 'grid', 'flow'].includes(meta.mode) ? meta.mode : 'flow';
   state.tplId = meta.tplId || null;
   state.quality = meta.quality || 2048;
   state.fit = meta.fit === 'cover' ? 'cover' : 'contain';
   state.long = { direction: 'vertical', reverse: false, ...(meta.long || {}) };
+  state.flow = { density: 'normal', ...(meta.flow || {}) };
 }
 
 export function resetPhotos() {

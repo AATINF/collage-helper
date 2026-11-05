@@ -116,6 +116,78 @@ export function drawLong(canvas, photos, { direction = 'vertical', size = 2048 }
   return { width: canvas.width, height: canvas.height };
 }
 
+
+/**
+ * 无缝拼接（justified layout，Flickr / Google Photos 用的那套）
+ *
+ * 规则：所有照片排成一行行，**同一行的照片等高**，每行加起来的宽度正好等于画布宽度。
+ * 因此：不裁切、不留白、没有空洞。照片按自己的原始比例缩放，只是"同高"。
+ * density 控制行高：紧凑=一行塞更多，宽松=一行就一两张。
+ */
+export function layoutJustified(photos, { width = 2048, targetRowHeight = 1024 } = {}) {
+  const items = photos.filter(p => p && p.img);
+  if (!items.length) return { rows: [], width, height: Math.round(targetRowHeight) };
+
+  const aspects = items.map(p => p.img.width / p.img.height);
+  const rows = [];
+  let cur = [], sum = 0;
+
+  items.forEach((_, i) => {
+    cur.push(i);
+    sum += aspects[i];
+    const h = width / sum;
+    if (h <= targetRowHeight) {          // 这一行已经够宽，收行
+      rows.push({ idx: cur.slice(), h });
+      cur = []; sum = 0;
+    }
+  });
+  if (cur.length) rows.push({ idx: cur.slice(), h: width / sum, last: true });
+
+  let y = 0;
+  rows.forEach(r => {
+    let h = r.h;
+    if (r.last) h = Math.min(h, targetRowHeight);   // 最后一行不拉高，居中放
+    r.h = h;
+    r.widths = r.idx.map(i => aspects[i] * h);
+    r.totalW = r.widths.reduce((a, b) => a + b, 0);
+    r.x = (width - r.totalW) / 2;
+    r.y = y;
+    y += h;
+  });
+
+  return { rows, width, height: Math.max(1, Math.round(y)) };
+}
+
+/** 把无缝拼接画出来：每行照片等高、宽度按各自比例分配，像素边界取整避免 1px 缝 */
+export function drawJustified(canvas, photos, opts = {}) {
+  const list = photos.filter(p => p && p.img);       // 与 layoutJustified 里的过滤保持一致
+  const { rows, width, height } = layoutJustified(list, opts);
+
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = BG;
+  ctx.fillRect(0, 0, width, height);
+  ctx.imageSmoothingQuality = 'high';
+
+  const rowH = Math.round(rows.length ? rows[0].h : height);
+  rows.forEach(r => {
+    const y = Math.round(r.y);
+    const h = Math.max(1, Math.round(r.y + r.h) - y);   // 行高也取整，避免行间缝隙
+    let x = r.x;
+    r.idx.forEach((i, k) => {
+      const x0 = Math.round(x);
+      const x1 = Math.round(x + r.widths[k]);
+      const w = Math.max(1, x1 - x0);
+      drawCover(ctx, list[i].img, x0, y, w, h, {}, 'cover');
+      x += r.widths[k];
+    });
+  });
+  void rowH;
+
+  return { width, height };
+}
+
 /** canvas -> Blob（JPG，质量 0.92，兼顾体积和画质） */
 export function canvasToBlob(canvas, quality = .92) {
   return new Promise((resolve, reject) => {
