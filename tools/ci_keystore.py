@@ -59,9 +59,21 @@ def download_artifact(run_id):
     if not target:
         sys.exit('没找到 keystore artifact')
     url = f"{API}/repos/{OWNER}/{REPO}/actions/artifacts/{target['id']}/zip"
-    req = urllib.request.Request(url, headers=H)
-    with urllib.request.urlopen(req, timeout=60) as r:
-        data = r.read()
+    # GitHub 会 302 到 Azure Blob；blob 不接受 Authorization 头，所以要手动跟跳转、跳转时去掉 token
+    class NoRedirect(urllib.request.HTTPRedirectHandler):
+        def redirect_request(self, req, fp, code, msg, headers, newurl):
+            return None
+
+    opener = urllib.request.build_opener(NoRedirect)
+    try:
+        with opener.open(urllib.request.Request(url, headers=H), timeout=60) as r:
+            data = r.read()
+    except urllib.error.HTTPError as e:
+        loc = e.headers.get('Location')
+        if not loc:
+            raise
+        with urllib.request.urlopen(urllib.request.Request(loc, headers={'User-Agent': 'dsh'}), timeout=120) as r:
+            data = r.read()
     z = zipfile.ZipFile(io.BytesIO(data))
     name = z.namelist()[0]
     content = z.read(name).decode().strip()

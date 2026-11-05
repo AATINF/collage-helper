@@ -9,6 +9,7 @@
     python3 tools/gh_push.py "提交说明"      # 首次会自动创建 refs/heads/main
 """
 import base64
+import pathlib
 import concurrent.futures as cf
 import json
 import subprocess
@@ -41,7 +42,8 @@ def working_files():
                          capture_output=True, text=True, check=True).stdout
     files = [f for f in out.splitlines() if f.strip()]
     skip = ('node_modules/', 'www/', '.git/')
-    return [f for f in files if not f.startswith(skip)]
+    # 已从磁盘删除的文件不该再上传（git ls-files 仍会列出已跟踪但删除的文件）
+    return [f for f in files if not f.startswith(skip) and pathlib.Path(f).is_file()]
 
 
 def blob(path):
